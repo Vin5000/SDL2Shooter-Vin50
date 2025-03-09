@@ -1,4 +1,3 @@
-
 //Using SDL, SDL_image, standard IO, vectors, and strings
 #include <SDL.h>
 #include <SDL_image.h>
@@ -7,21 +6,12 @@
 #include <string>
 #include <cmath>
 #include <vector>
-
-
-
 //The dimensions of the level
 const int LEVEL_WIDTH = 1280;
 const int LEVEL_HEIGHT = 960;
-
 //Screen dimension constants
 const int SCREEN_WIDTH = 850;
 const int SCREEN_HEIGHT = 960;
-
-
-
-
-
 //Texture wrapper class
 class LTexture
 {
@@ -93,7 +83,7 @@ public:
 	int getPosY();
 
 	//movement
-	enum DotState{IDLE, WALKING};
+	enum DotState { IDLE, WALKING };
 
 	DotState mState;
 
@@ -103,7 +93,7 @@ public:
 		return collider;
 	}
 
-	
+
 
 private:
 	int mHealth;
@@ -127,7 +117,7 @@ class Enemy
 public:
 	static const int ENEMY_WIDTH = 20;
 	static const int ENEMY_HEIGHT = 20;
-	
+
 	static const int ENEMY_VEL = 2;
 	static const int ENEMY_MAX_HEALTH = 50;
 
@@ -152,18 +142,24 @@ public:
 
 	SDL_Rect getCollider()
 	{
-		SDL_Rect collider = { mPosX, mPosY, ENEMY_WIDTH, ENEMY_HEIGHT };
-		return collider;
+		if (!isDead())
+		{
+			SDL_Rect collider = { mPosX, mPosY + 70, ENEMY_WIDTH, ENEMY_HEIGHT };
+			return collider;
+		}
+		return{ 0,0,0,0 };
 	}
+
+	
 
 	int health;
 
 
-	private:
-		
-		int mPosX, mPosY;
+private:
 
-		int mVelX, mVelY;
+	int mPosX, mPosY;
+
+	int mVelX, mVelY;
 };
 
 //The window we'll be rendering to
@@ -195,11 +191,17 @@ public:
 		mPosX += mVelX;
 	}
 
-	void render()
+	void render(int camX,int camY)
 	{
 		SDL_Rect fillRect = { mPosX, mPosY, PROJECTILE_WIDTH, PROJECTILE_HEIGHT };
 		SDL_SetRenderDrawColor(gRenderer, 255, 0, 0, 255); // Red projectile
 		SDL_RenderFillRect(gRenderer, &fillRect);
+
+		SDL_Rect colRect = getCollider();
+		colRect.x -= camX;
+		colRect.y -= camY;
+		SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+		SDL_RenderDrawRect(gRenderer, &colRect);
 	}
 
 	bool isOffScreen()
@@ -288,7 +290,7 @@ bool LTexture::loadFromFile(std::string path)
 	else
 	{
 		//Color key image
-		
+
 		SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface->format, 0, 0xFF, 0xFF));
 		//Create texture from surface pixels
 		newTexture = SDL_CreateTextureFromSurface(gRenderer, loadedSurface);
@@ -556,6 +558,7 @@ void Enemy::move()
 	{
 		mPosY -= mVelY;
 	}
+	
 }
 
 void Dot::render(int camX, int camY)
@@ -572,6 +575,11 @@ void Dot::render(int camX, int camY)
 		currentClip = &gIdleClips[SDL_GetTicks() / 100 % IDLE_ANIMATION_FRAMES];  // Cycle through idle animation
 		gIdleSheetTexture.render(mPosX - camX, mPosY - camY, currentClip, 0.0, NULL, flipType);
 	}
+	SDL_Rect colRect = getCollider();
+	colRect.x -= camX;
+	colRect.y -= camY;
+	SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+	SDL_RenderDrawRect(gRenderer, &colRect);
 }
 
 void Enemy::render(int camX, int camY)
@@ -587,6 +595,11 @@ void Enemy::render(int camX, int camY)
 	{
 		healthTexture.render(mPosX - camX, mPosY - camY - 20); // Position above enemy
 	}
+	SDL_Rect colRect = getCollider();
+	colRect.x -= camX;
+	colRect.y -= camY;
+	SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+	SDL_RenderDrawRect(gRenderer, &colRect);
 }
 
 int Dot::getPosX()
@@ -774,7 +787,7 @@ bool loadMedia()
 	}
 	else
 	{
-		
+
 		gEnemyclips[0].x = 38;
 		gEnemyclips[0].y = 0;
 		gEnemyclips[0].w = 100;
@@ -824,14 +837,12 @@ void close()
 	gWindow = NULL;
 	gRenderer = NULL;
 
-	
+
 	//Quit SDL subsystems
 	TTF_Quit();
 	IMG_Quit();
 	SDL_Quit();
 }
-
-
 //check if this code is being used
 
 int main(int argc, char* args[])
@@ -858,13 +869,10 @@ int main(int argc, char* args[])
 
 			//Current animation frame
 			int frame = 0;
-
-			
-
 			//The dot that will be moving around on the screen
 			Dot dot;
 
-			Enemy Enemy(900,800);
+			Enemy Enemy(900, 800);
 
 			//The camera area
 			SDL_Rect camera = { 50, 50, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -884,17 +892,16 @@ int main(int argc, char* args[])
 					//Handle input for the dot
 					dot.handleEvent(e);
 
-				
-					
-					
-
-					
 				}
 
 				//Move the dot
-				dot.move(Enemy.getCollider());
 
-				Enemy.move();
+			
+				
+					dot.move(Enemy.getCollider());
+				
+				
+					Enemy.move();
 				
 
 				//Center the camera over the dot
@@ -931,12 +938,12 @@ int main(int argc, char* args[])
 
 				gTextTexture.render(0, 0);
 
-				Enemy.render(camera.x,camera.y);
+				Enemy.render(camera.x, camera.y);
 
 				for (size_t i = 0; i < projectiles.size();)
 				{
 					projectiles[i].move();
-					projectiles[i].render();
+					projectiles[i].render(camera.x,camera.y);
 
 					if (projectiles[i].isOffScreen())
 					{
@@ -953,6 +960,12 @@ int main(int argc, char* args[])
 					it->move();
 
 					// If the projectile collides with the enemy
+					if (Enemy.isDead())
+					{
+						gEnemyTexture.free();
+						
+						
+					}
 					if (!Enemy.isDead() && checkCollision(it->getCollider(), Enemy.getCollider())) {
 						Enemy.takeDamage(10);
 						it = projectiles.erase(it); // Remove projectile after hit
@@ -966,7 +979,7 @@ int main(int argc, char* args[])
 				}
 				for (auto& proj : projectiles)
 				{
-					proj.render();
+					proj.render(camera.x, camera.y);
 				}
 
 				//Update screen
@@ -993,7 +1006,6 @@ int main(int argc, char* args[])
 			}
 		}
 	}
-
 	//Free resources and close SDL
 	close();
 
